@@ -2,6 +2,8 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, Conversation, fmtTime, Message, Prompt } from "../api";
 
+const isTouch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+
 const SENDER_LABEL: Record<string, string> = { ai: "AI", admin: "Admin", system: "Sistem", customer: "" };
 
 export default function Inbox() {
@@ -82,7 +84,7 @@ export default function Inbox() {
   return (
     <>
       {error && <div className="alert error">{error}</div>}
-      <div className="inbox">
+      <div className={`inbox ${active ? "has-active" : ""}`}>
         <div className="conv-list">
           <div className="search">
             <input placeholder="Cari nama / nomor / pesan" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -101,7 +103,7 @@ export default function Inbox() {
               <div key={c.id} className={`conv-item ${String(c.id) === id ? "active" : ""}`} onClick={() => nav(`/inbox/${c.id}`)}>
                 <div className="name">
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{c.contact_name || `+${c.wa_id}`}</span>
-                  {c.needs_attention && <span title="Perlu perhatian">⚠️</span>}
+                  {c.needs_attention && <span className="badge warn" title="Perlu perhatian">perlu admin</span>}
                   <span className="badge" title="Kanal">{c.phone_number_id === "baileys" ? "WA pribadi" : "Kirimdev"}</span>
                   <span className={`badge ${c.mode}`}>{c.mode === "ai" ? "AI" : "Manual"}</span>
                   {c.unread > 0 && <span className="unread">{c.unread}</span>}
@@ -120,11 +122,13 @@ export default function Inbox() {
           ) : (
             <>
               <div className="chat-head">
-                <div>
+                <button className="icon-btn back" aria-label="Kembali" onClick={() => nav("/inbox")}>←</button>
+                <div className="chat-title">
                   <b>{active.contact_name || `+${active.wa_id}`}</b>
                   <div className="muted small">+{active.wa_id} · {active.phone_number_id === "baileys" ? "WA pribadi (Baileys)" : "Kirimdev"}</div>
                 </div>
                 <div className="spacer" />
+                <div className="chat-actions">
                 <span className={`badge ${active.mode}`}>
                   {active.mode === "ai" ? "Dibalas AI" : `Manual${active.human_until ? ` s/d ${fmtTime(active.human_until)}` : ""}`}
                 </span>
@@ -134,7 +138,7 @@ export default function Inbox() {
                   <button className="btn sm" onClick={() => patch({ mode: "ai" })}>Serahkan ke AI</button>
                 )}
                 <select
-                  style={{ width: 200 }}
+                  className="prompt-select"
                   value={active.prompt_id ?? ""}
                   onChange={(e) => patch({ prompt_id: e.target.value ? Number(e.target.value) : null })}
                   title="Prompt untuk percakapan ini"
@@ -144,6 +148,7 @@ export default function Inbox() {
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
+                </div>
               </div>
               <div className="chat-body" ref={bodyRef}>
                 {msgs.map((m) => (
@@ -165,11 +170,12 @@ export default function Inbox() {
               <form className="chat-input" onSubmit={send}>
                 <textarea
                   rows={2}
-                  placeholder="Ketik balasan manual... (Enter kirim, Shift+Enter baris baru). Mengirim akan mengambil alih chat dari AI."
+                  placeholder={isTouch ? "Ketik balasan manual..." : "Ketik balasan manual... (Enter kirim, Shift+Enter baris baru). Mengirim akan mengambil alih chat dari AI."}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    // di HP, Enter = baris baru (kirim lewat tombol)
+                    if (e.key === "Enter" && !e.shiftKey && !isTouch) {
                       e.preventDefault();
                       send(e as any);
                     }

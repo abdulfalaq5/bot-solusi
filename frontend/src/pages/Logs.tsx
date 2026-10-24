@@ -17,7 +17,7 @@ export default function Logs() {
       <div className="row">
         <h1>Log AI</h1>
         <div className="spacer" />
-        <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 160 }}>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: 160, maxWidth: "100%" }}>
           <option value="">Semua</option><option value="ok">Sukses</option><option value="fail">Gagal</option>
         </select>
       </div>

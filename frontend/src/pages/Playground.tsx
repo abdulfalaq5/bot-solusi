@@ -46,17 +46,17 @@ export default function Playground() {
       <h1>Playground</h1>
       <p className="muted">Uji prompt & urutan fallback model tanpa WhatsApp. Pesan di sini tidak dikirim ke pelanggan.</p>
       <div className="row" style={{ marginBottom: 12 }}>
-        <select value={promptId} onChange={(e) => setPromptId(e.target.value)} style={{ width: 260 }}>
+        <select value={promptId} onChange={(e) => setPromptId(e.target.value)} style={{ width: 260, maxWidth: "100%" }}>
           <option value="">Prompt default</option>
           {prompts.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <select value={modelPk} onChange={(e) => setModelPk(e.target.value)} style={{ width: 340 }}>
+        <select value={modelPk} onChange={(e) => setModelPk(e.target.value)} style={{ width: 340, maxWidth: "100%" }}>
           <option value="">Otomatis (fallback free → paid)</option>
           {models.map((m) => <option key={m.id} value={m.id}>[{m.tier}] {m.provider_name} / {m.model_id}</option>)}
         </select>
         <button className="btn ghost" onClick={() => { setMsgs([]); setAttempts([]); }}>Reset</button>
       </div>
-      <div className="inbox" style={{ gridTemplateColumns: "1fr 300px", height: "calc(100vh - 200px)" }}>
+      <div className="inbox playground has-active">
         <div className="chat">
           <div className="chat-body">
             {msgs.map((m, i) => (
@@ -73,7 +73,7 @@ export default function Playground() {
             <button className="btn" disabled={loading}>Kirim</button>
           </form>
         </div>
-        <div style={{ padding: 12, overflowY: "auto", borderLeft: "1px solid var(--border)" }}>
+        <div className="attempts">
           <h2>Percobaan model</h2>
           {attempts.map((a, i) => (
             <div key={i} className="small" style={{ marginBottom: 8 }}>

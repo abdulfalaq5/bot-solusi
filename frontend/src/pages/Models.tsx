@@ -48,10 +48,10 @@ export default function Models() {
         Matikan "Gunakan model berbayar sebagai fallback" di Pengaturan jika hanya ingin model gratis.
       </p>
       <div className="row" style={{ marginBottom: 12 }}>
-        <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ width: 160 }}>
+        <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ width: 160, maxWidth: "100%" }}>
           <option value="">Semua tipe</option><option value="free">free</option><option value="paid">paid</option>
         </select>
-        <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ width: 220 }}>
+        <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ width: 220, maxWidth: "100%" }}>
           <option value="">Semua provider</option>
           {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
@@ -66,11 +66,11 @@ export default function Models() {
               <tr key={m.id} style={{ opacity: m.enabled && m.provider_enabled ? 1 : 0.55 }}>
                 <td><input type="checkbox" checked={m.enabled} onChange={() => update(m, { enabled: !m.enabled })} /></td>
                 <td>
-                  <input type="number" style={{ width: 70 }} defaultValue={m.priority} key={`${m.id}-${m.priority}`}
+                  <input type="number" style={{ width: 70, maxWidth: "100%" }} defaultValue={m.priority} key={`${m.id}-${m.priority}`}
                     onBlur={(e) => Number(e.target.value) !== m.priority && update(m, { priority: Number(e.target.value) })} />
                 </td>
                 <td>
-                  <select value={m.tier} onChange={(e) => update(m, { tier: e.target.value as any })} style={{ width: 80 }}>
+                  <select value={m.tier} onChange={(e) => update(m, { tier: e.target.value as any })} style={{ width: 80, maxWidth: "100%" }}>
                     <option value="free">free</option><option value="paid">paid</option>
                   </select>
                 </td>

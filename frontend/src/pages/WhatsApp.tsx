@@ -63,7 +63,7 @@ export default function WhatsApp() {
           )}
         </div>
         <div className="alert" style={{ marginTop: 12 }}>
-          ⚠️ Kanal ini <b>tidak resmi</b>. Meta bisa memblokir nomor yang terdeteksi memakai bot. Gunakan nomor yang siap menanggung risiko,
+          Kanal ini <b>tidak resmi</b>. Meta bisa memblokir nomor yang terdeteksi memakai bot. Gunakan nomor yang siap menanggung risiko,
           jangan kirim broadcast / pesan massal, dan hanya balas pelanggan yang menghubungi lebih dulu.
         </div>
         {!b.enabled && <p className="muted">Aktifkan dengan <span className="mono">BAILEYS_ENABLED=true</span> di .env.</p>}

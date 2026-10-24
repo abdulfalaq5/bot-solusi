@@ -58,7 +58,7 @@ export default function Prompts() {
         Variabel yang tersedia: <span className="mono">{"{bot_name} {business_name} {business_info} {customer_name} {date}"}</span>. Prompt <b>default</b> dipakai untuk semua chat,
         kecuali percakapan yang di-set prompt khusus di Inbox. Tambahkan instruksi <span className="mono">[HANDOFF]</span> agar AI bisa menyerahkan chat ke admin.
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 16 }}>
+      <div className="prompts-grid">
         <div className="card" style={{ padding: 0 }}>
           {list.map((p) => (
             <div key={p.id} className={`conv-item ${sel?.id === p.id ? "active" : ""}`} onClick={() => setSel(p)}>

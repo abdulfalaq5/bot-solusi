@@ -27,7 +27,10 @@ export default function Login() {
   return (
     <div className="login-wrap">
       <form className="card" onSubmit={submit}>
-        <h1>🤖 Bot Solusi Admin</h1>
+        <div className="login-brand">
+          <img src="/logo.png" alt="Solusi lokatali.my.id" />
+          <span className="muted">Admin WhatsApp Bot</span>
+        </div>
         {error && <div className="alert error">{error}</div>}
         <label className="field">
           <span>Email</span>

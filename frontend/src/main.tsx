@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useNavigate } from "react-router-dom";
+import { BrowserRouter, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import "./styles.css";
 import { auth } from "./api";
 import Login from "./pages/Login";
@@ -28,11 +28,25 @@ const NAV = [
 
 function Layout() {
   const nav = useNavigate();
+  const loc = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // tutup menu (mobile) setiap pindah halaman
+  useEffect(() => setMenuOpen(false), [loc.pathname]);
   if (!auth.token) return <Navigate to="/login" replace />;
+  const current = NAV.find(([to]) => (to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(to)))?.[1] ?? "";
   return (
     <div className="layout">
-      <aside className="sidebar">
-        <div className="brand">🤖 Bot Solusi</div>
+      <header className="topbar">
+        <button className="icon-btn burger" aria-label="Menu" onClick={() => setMenuOpen(true)}><span /></button>
+        <img className="topbar-mark" src="/mark.png" alt="" />
+        <b>{current || "Solusi"}</b>
+      </header>
+      {menuOpen && <div className="backdrop" onClick={() => setMenuOpen(false)} />}
+      <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
+        <div className="brand">
+          <img src="/logo.png" alt="Solusi lokatali.my.id" />
+          <span>Admin WhatsApp Bot</span>
+        </div>
         <nav>
           {NAV.map(([to, label]) => (
             <NavLink key={to} to={to} end={to === "/"}>
@@ -50,7 +64,7 @@ function Layout() {
           Keluar
         </button>
       </aside>
-      <main className="content">
+      <main className={`content ${loc.pathname.startsWith("/inbox") ? "content-inbox" : ""}`}>
         <Outlet />
       </main>
     </div>
