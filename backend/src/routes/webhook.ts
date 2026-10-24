@@ -29,7 +29,11 @@ export async function webhookRoutes(app: FastifyInstance) {
     await queue.add(
       "inbound",
       { event, payload: req.body },
-      deliveryId ? { jobId: `in-${deliveryId}`.replace(/[^a-zA-Z0-9._-]/g, "_") } : {},
+      {
+        ...(deliveryId ? { jobId: `in-${deliveryId}`.replace(/[^a-zA-Z0-9._-]/g, "_") } : {}),
+        // beri waktu kiriman bot sendiri tersimpan dulu, supaya tidak dikira balasan agen
+        ...(event === "message.sent" ? { delay: 5000 } : {}),
+      },
     );
     return { received: true };
   });

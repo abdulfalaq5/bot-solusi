@@ -77,6 +77,7 @@ export const kirimApi = {
   me: () => request("GET", "/me"),
   accounts: () => request("GET", "/accounts"),
   listWebhooks: () => request("GET", "/webhook_subscriptions"),
+  conversation: (id: string, phoneNumberId?: string) => request("GET", `/${phone(phoneNumberId)}/conversations/${encodeURIComponent(id)}`),
   createWebhook: (url: string) =>
     request(
       "POST",

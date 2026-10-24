@@ -290,6 +290,11 @@ Menu **Playground** dipakai untuk mencoba chat **tanpa** mengirim ke WhatsApp:
 ## 8. Atur prompt & informasi bisnis
 
 1. **Pengaturan → Bot**: isi **Nama bot**, **Nama bisnis**, dan **Informasi bisnis** (produk, harga, jam buka, alamat, FAQ). Informasi ini menjadi "pengetahuan" bagi CS AI.
+   **Memakai dokumen knowledge base (.md):** dokumen yang panjang sebaiknya diringkas dulu supaya tidak boros token, karena free tier Groq dan provider lain membatasi token per menit. Script berikut meringkas dokumen lalu langsung menyimpannya ke Informasi bisnis:
+   ```bash
+   python3 scripts/build_knowledge.py /path/ke/knowledge-base-cs.md knowledge/knowledge-base-cs.compact.md --apply
+   ```
+   Jalankan ulang setiap kali dokumen sumbernya berubah. Hasilnya langsung berlaku tanpa restart.
 2. **Prompt**: tersedia dua prompt bawaan:
    - **CS AI (Customer Service)**: default. Hanya menjawab berdasarkan informasi bisnis, dan bisa menyerahkan chat ke admin.
    - **Asisten AI (Umum)**: menjawab pertanyaan umum.

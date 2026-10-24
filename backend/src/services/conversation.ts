@@ -1,6 +1,7 @@
 import { sql } from "../db.js";
+import { config } from "../config.js";
 import { ChatMessage, generateReply } from "../ai/router.js";
-import { markRead, sendText } from "./kirim.js";
+import { kirimApi, markRead, sendText } from "./kirim.js";
 import { getSettings, Settings } from "./settings.js";
 import { queue, redis } from "../queue.js";
 
@@ -45,7 +46,7 @@ export function isHumanMode(conv: any) {
 }
 
 /** Proses payload webhook message.received (format Meta Cloud API passthrough). */
-export async function handleInbound(payload: any) {
+export async function handleInbound(payload: any, event: "message.received" | "message.status") {
   const s = await getSettings();
   for (const entry of payload?.entry ?? []) {
     for (const change of entry?.changes ?? []) {
@@ -54,24 +55,33 @@ export async function handleInbound(payload: any) {
       const names = new Map<string, string>();
       for (const c of value?.contacts ?? []) if (c?.wa_id) names.set(c.wa_id, c?.profile?.name ?? null);
 
-      for (const m of (value?.messages ?? []) as InboundMessage[]) {
-        await handleOneMessage(m, phoneNumberId, names.get(m.from) ?? null, payload?.kirim?.media_url ?? null, s);
+      const inbound = event === "message.received" ? ((value?.messages ?? []) as InboundMessage[]) : [];
+      for (const m of inbound) {
+        await handleOneMessage(m, phoneNumberId, names.get(m.from) ?? null, payload?.kirim ?? {}, s);
       }
       for (const st of value?.statuses ?? []) await handleStatus(st);
     }
   }
 }
 
-async function handleOneMessage(m: InboundMessage, phoneNumberId: string, name: string | null, mediaUrl: string | null, s: Settings) {
+async function handleOneMessage(m: InboundMessage, phoneNumberId: string, name: string | null, kirim: any, s: Settings) {
+  const mediaUrl: string | null = kirim?.media_url ?? null;
   const [contact] = await sql`
     INSERT INTO contacts (wa_id, name) VALUES (${m.from}, ${name})
     ON CONFLICT (wa_id) DO UPDATE SET name = COALESCE(EXCLUDED.name, contacts.name)
     RETURNING *`;
+  // percakapan yang dibuat dari event tanpa phone_number_id (mis. message.sent) dipakai ulang
+  await sql`UPDATE conversations SET phone_number_id = ${phoneNumberId}
+            WHERE contact_id = ${contact.id} AND phone_number_id = '' AND ${phoneNumberId} <> ''
+              AND NOT EXISTS (SELECT 1 FROM conversations x WHERE x.contact_id = ${contact.id} AND x.phone_number_id = ${phoneNumberId})`;
   const [conv] = await sql`
     INSERT INTO conversations (contact_id, phone_number_id, mode)
     VALUES (${contact.id}, ${phoneNumberId}, ${s.default_mode})
     ON CONFLICT (contact_id, phone_number_id) DO UPDATE SET contact_id = EXCLUDED.contact_id
     RETURNING *`;
+  if (kirim?.conversation_id && conv.kirim_conversation_id !== kirim.conversation_id) {
+    await sql`UPDATE conversations SET kirim_conversation_id = ${kirim.conversation_id} WHERE id = ${conv.id}`;
+  }
 
   const body = extractBody(m);
   const [msg] = await sql`
@@ -121,10 +131,100 @@ async function handleStatus(st: any) {
             WHERE direction = 'out' AND (wamid = ${st.id} OR kirim_msg_id = ${st.id})`;
 }
 
-async function setHuman(conversationId: number, s: Settings) {
+async function setHuman(conversationId: number, s: Settings, needsAttention = true) {
   const minutes = Number(s.human_auto_resume_minutes) || 0;
   const until = minutes > 0 ? new Date(Date.now() + minutes * 60_000) : null;
-  await sql`UPDATE conversations SET mode = 'human', human_until = ${until}, needs_attention = true WHERE id = ${conversationId}`;
+  await sql`UPDATE conversations SET mode = 'human', human_until = ${until},
+            needs_attention = ${needsAttention} WHERE id = ${conversationId}`;
+}
+
+/** Admin mengambil alih chat (dari admin panel): AI berhenti membalas di chat ini. */
+export async function takeover(conversationId: number) {
+  const s = await getSettings();
+  await setHuman(conversationId, s, false);
+  // batalkan balasan AI yang sedang menunggu debounce
+  await redis.set(`latest:${conversationId}`, "takeover", "EX", 3600);
+}
+
+const digits = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+
+/**
+ * message.sent: pesan keluar yang diterima Meta. Jika bukan kiriman bot/admin panel ini
+ * (mis. agen membalas dari inbox Kirimdev), catat sebagai pesan admin dan hentikan AI di chat itu.
+ */
+export async function handleMessageSent(payload: any) {
+  const s = await getSettings();
+  if (!s.sync_kirim_agent) return { skipped: "sync off" };
+
+  // bentuk native Kirimdev ({data:{message}} / {data}) atau passthrough Meta (entry/changes)
+  const metaMsg = payload?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  const m = payload?.data?.message ?? payload?.message ?? (payload?.data?.object === "message" ? payload.data : null) ?? metaMsg;
+  if (!m) {
+    console.warn("[message.sent] format tidak dikenali, keys:", Object.keys(payload ?? {}).join(","));
+    return { skipped: "unknown format" };
+  }
+  const kirimId: string | null = m.id?.startsWith?.("msg_") ? m.id : (payload?.kirim?.message_id ?? null);
+  const wamid: string | null = m.message_id ?? m.wamid ?? (m.id?.startsWith?.("wamid.") ? m.id : null);
+  const waId = digits(m.to ?? m.recipient_id ?? payload?.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.wa_id);
+  if (!waId) return { skipped: "no recipient" };
+
+  // kiriman bot / admin panel sendiri -> abaikan
+  const [own] = await sql`SELECT id FROM messages WHERE direction = 'out'
+    AND ((${kirimId}::text IS NOT NULL AND kirim_msg_id = ${kirimId}) OR (${wamid}::text IS NOT NULL AND wamid = ${wamid})) LIMIT 1`;
+  if (own) return { skipped: "own message" };
+
+  const body: string | null = m.content ?? m.text?.body ?? m.image?.caption ?? null;
+  const phoneNumberId =
+    payload?.kirim?.phone_number_id ?? payload?.data?.phone_number_id ?? m.phone_number_id ??
+    payload?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id ?? config.kirim.phoneId;
+  const [contact] = await sql`INSERT INTO contacts (wa_id) VALUES (${waId})
+    ON CONFLICT (wa_id) DO UPDATE SET wa_id = EXCLUDED.wa_id RETURNING *`;
+  const [conv] = await sql`INSERT INTO conversations (contact_id, phone_number_id, mode)
+    VALUES (${contact.id}, ${phoneNumberId}, 'human')
+    ON CONFLICT (contact_id, phone_number_id) DO UPDATE SET contact_id = EXCLUDED.contact_id RETURNING *`;
+  const kirimConv = m.conversation_id ?? null;
+  if (kirimConv) await sql`UPDATE conversations SET kirim_conversation_id = ${kirimConv} WHERE id = ${conv.id}`;
+
+  await sql`INSERT INTO messages (conversation_id, direction, sender, type, body, media_url, wamid, kirim_msg_id, status, source)
+    VALUES (${conv.id}, 'out', 'admin', ${m.type ?? "text"}, ${body}, ${m.media_url ?? null}, ${wamid}, ${kirimId}, ${m.status ?? "sent"}, 'kirimdev')`;
+  await sql`UPDATE conversations SET last_message_at = now(), last_preview = ${(body ?? `[${m.type ?? "pesan"}]`).slice(0, 200)},
+            unread = 0 WHERE id = ${conv.id}`;
+  await takeover(conv.id);
+  return { takeover: conv.id };
+}
+
+async function findConvByKirimId(kirimConvId: string, phoneNumberId?: string) {
+  const [conv] = await sql`SELECT * FROM conversations WHERE kirim_conversation_id = ${kirimConvId} LIMIT 1`;
+  if (conv) return conv;
+  // belum pernah terpetakan: ambil kontaknya dari API Kirimdev
+  try {
+    const r: any = await kirimApi.conversation(kirimConvId, phoneNumberId);
+    const waId = digits(r?.data?.contact?.phone_number);
+    if (!waId) return null;
+    const [c] = await sql`SELECT c.* FROM conversations c JOIN contacts ct ON ct.id = c.contact_id
+      WHERE ct.wa_id = ${waId} ORDER BY c.last_message_at DESC LIMIT 1`;
+    if (c) await sql`UPDATE conversations SET kirim_conversation_id = ${kirimConvId} WHERE id = ${c.id}`;
+    return c ?? null;
+  } catch (e: any) {
+    console.warn("[kirim] lookup conversation gagal:", e.message);
+    return null;
+  }
+}
+
+/** conversation.assigned -> AI berhenti ; conversation.closed -> AI aktif lagi */
+export async function handleConversationEvent(event: string, payload: any) {
+  const s = await getSettings();
+  if (!s.sync_kirim_agent) return { skipped: "sync off" };
+  const kc = payload?.data?.conversation;
+  if (!kc?.id) return { skipped: "no conversation" };
+  const conv = await findConvByKirimId(kc.id, kc.phone_number_id);
+  if (!conv) return { skipped: "conversation not found" };
+  if (event === "conversation.assigned") {
+    if (payload?.data?.assignee?.user_id) await takeover(conv.id);
+    return { takeover: conv.id };
+  }
+  await sql`UPDATE conversations SET mode = 'ai', human_until = NULL, needs_attention = false WHERE id = ${conv.id}`;
+  return { resumed: conv.id };
 }
 
 export async function sendAndStore(
@@ -229,17 +329,19 @@ export async function processReply(conversationId: number, messageId: number) {
     return { failed: true };
   }
 
-  // model CS bisa meminta handoff ke manusia
-  if (/\[HANDOFF\]/i.test(text)) {
-    text = text.replace(/\[HANDOFF\]/gi, "").trim();
-    await setHuman(conversationId, s);
-  }
-  if (!text) return { skipped: "empty" };
-
-  // jika sementara itu pelanggan mengirim pesan baru, biarkan job berikutnya yang membalas
+  // jika sementara itu pelanggan mengirim pesan baru / admin mengambil alih, jangan kirim
+  // (dicek SEBELUM memproses [HANDOFF], karena handoff sendiri juga memindahkan chat ke mode manual)
   const latestNow = await redis.get(`latest:${conversationId}`);
-  if (latestNow && latestNow !== String(messageId)) return { skipped: "newer message arrived" };
+  if (latestNow && latestNow !== String(messageId)) return { skipped: "newer message / takeover" };
+  const [fresh] = await sql`SELECT mode, human_until FROM conversations WHERE id = ${conversationId}`;
+  if (isHumanMode(fresh)) return { skipped: "admin took over" };
+
+  // model CS bisa meminta handoff ke manusia: kirim jawabannya dulu, lalu pindahkan ke mode manual
+  const handoff = /\[HANDOFF\]/i.test(text);
+  text = text.replace(/\[HANDOFF\]/gi, "").trim();
+  if (!text) text = s.handoff_reply;
 
   await sendAndStore(conversationId, conv.wa_id, conv.phone_number_id, text, "ai", modelUsed);
+  if (handoff) await setHuman(conversationId, s);
   return { sent: true, model: modelUsed };
 }

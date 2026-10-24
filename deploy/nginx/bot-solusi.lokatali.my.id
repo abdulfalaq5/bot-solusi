@@ -1,0 +1,47 @@
+# Bot Solusi (docker compose: service "web") -> http://127.0.0.1:8090 (WEB_PORT di .env)
+# TLS diterminasi oleh Cloudflare tunnel, jadi nginx hanya listen :80 seperti situs lokatali lainnya.
+# Nginx di dalam kontainer "web" menyajikan admin panel React dan mem-proxy /api, /webhook, /health ke service api.
+server {
+    listen 80;
+    server_name bot-solusi.lokatali.my.id;
+
+    client_max_body_size 10M;
+
+    gzip on;
+    gzip_types application/json application/javascript text/css image/svg+xml;
+
+    location / {
+        proxy_pass http://127.0.0.1:8090;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Pengunjung datang lewat HTTPS di Cloudflare walau nginx menerima HTTP dari tunnel.
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout    60s;
+        # Playground & tes model bisa menunggu beberapa provider AI berturut-turut.
+        proxy_read_timeout    180s;
+
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    }
+
+    # Webhook Kirimdev: body harus diteruskan utuh (verifikasi HMAC memakai raw body).
+    location /webhook/ {
+        proxy_pass http://127.0.0.1:8090;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 30s;
+    }
+
+    location = /health {
+        proxy_pass http://127.0.0.1:8090;
+        proxy_set_header Host $host;
+        access_log off;
+    }
+}

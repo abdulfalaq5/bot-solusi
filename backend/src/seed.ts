@@ -224,6 +224,11 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   typing_indicator: true,
   reply_to_non_text: "Maaf kak, saat ini kami baru bisa membaca pesan teks. Silakan ketik pertanyaannya ya 🙏",
   webhook_secrets: [],
+  // admin membuka chat di admin panel -> AI berhenti di chat itu (default mati: AI tetap menjawab
+  // sampai admin mengambil alih secara manual dengan membalas / klik "Ambil alih")
+  takeover_on_open: false,
+  // admin membalas / di-assign dari inbox Kirimdev -> AI berhenti; conversation ditutup -> AI aktif lagi
+  sync_kirim_agent: true,
 };
 
 export async function seed() {

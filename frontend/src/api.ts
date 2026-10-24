@@ -91,6 +91,7 @@ export type Message = {
   status: string | null;
   error: string | null;
   model_used: string | null;
+  source: string | null;
   created_at: string;
 };
 

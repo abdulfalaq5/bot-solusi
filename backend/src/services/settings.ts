@@ -19,6 +19,8 @@ export type Settings = typeof DEFAULT_SETTINGS & {
   typing_indicator: boolean;
   reply_to_non_text: string;
   webhook_secrets: string[];
+  takeover_on_open: boolean;
+  sync_kirim_agent: boolean;
 };
 
 // Selalu dibaca dari DB (tanpa cache panjang) supaya perubahan di admin langsung berlaku.

@@ -73,6 +73,8 @@ export default function Settings() {
           <label className="row"><input type="checkbox" checked={s.use_paid_fallback} onChange={(e) => set("use_paid_fallback", e.target.checked)} /> Gunakan model berbayar sebagai fallback</label>
           <label className="row"><input type="checkbox" checked={s.mark_as_read} onChange={(e) => set("mark_as_read", e.target.checked)} /> Tandai dibaca (centang biru)</label>
           <label className="row"><input type="checkbox" checked={s.typing_indicator} onChange={(e) => set("typing_indicator", e.target.checked)} /> Tampilkan "sedang mengetik"</label>
+          <label className="row"><input type="checkbox" checked={s.takeover_on_open} onChange={(e) => set("takeover_on_open", e.target.checked)} /> Admin membuka chat di Inbox → AI berhenti</label>
+          <label className="row"><input type="checkbox" checked={s.sync_kirim_agent} onChange={(e) => set("sync_kirim_agent", e.target.checked)} /> Admin membalas / assign di Kirimdev → AI berhenti (closed → AI aktif lagi)</label>
         </div>
         <div className="form-grid">
           <label className="field"><span>Nama bot</span><input value={s.bot_name} onChange={(e) => set("bot_name", e.target.value)} /></label>

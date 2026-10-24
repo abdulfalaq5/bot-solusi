@@ -152,7 +152,7 @@ export default function Inbox() {
                       <div><a href={m.media_url} target="_blank" rel="noreferrer">lihat media</a></div>
                     )}
                     <div className="meta">
-                      {SENDER_LABEL[m.sender] && <b>{SENDER_LABEL[m.sender]} · </b>}
+                      {SENDER_LABEL[m.sender] && <b>{SENDER_LABEL[m.sender]}{m.source === "kirimdev" ? " (Kirimdev)" : ""} · </b>}
                       {m.model_used && <span title="model">{m.model_used} · </span>}
                       {fmtTime(m.created_at)}
                       {m.direction === "out" && m.status && ` · ${m.status}`}

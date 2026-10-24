@@ -63,7 +63,8 @@ services:
     build: ./frontend
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-8080}:80"
+      # hanya bisa diakses dari host (nginx host -> cloudflare tunnel)
+      - "127.0.0.1:${WEB_PORT:-8080}:80"
     depends_on:
       api:
         condition: service_healthy

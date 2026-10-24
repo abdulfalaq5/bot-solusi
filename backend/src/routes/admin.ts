@@ -4,7 +4,7 @@ import { sql } from "../db.js";
 import { config } from "../config.js";
 import { callModel, generateReply, getCandidates, resolveKey } from "../ai/router.js";
 import { getSettings, updateSettings } from "../services/settings.js";
-import { buildSystemPrompt, sendAndStore } from "../services/conversation.js";
+import { buildSystemPrompt, sendAndStore, takeover } from "../services/conversation.js";
 import { kirimApi } from "../services/kirim.js";
 
 const PROVIDER_FIELDS = ["code", "name", "base_url", "api_key", "api_key_env", "requires_key", "tier", "enabled", "extra_headers", "website", "notes"] as const;
@@ -265,9 +265,13 @@ export async function adminRoutes(app: FastifyInstance) {
       return rows.reverse();
     });
 
+    // dipanggil saat admin membuka chat; jika takeover_on_open aktif, AI berhenti di chat ini
     r.post("/api/conversations/:id/read", async (req) => {
-      await sql`UPDATE conversations SET unread = 0, needs_attention = false WHERE id = ${Number((req.params as any).id)}`;
-      return { ok: true };
+      const id = Number((req.params as any).id);
+      await sql`UPDATE conversations SET unread = 0, needs_attention = false WHERE id = ${id}`;
+      const s = await getSettings();
+      if (s.takeover_on_open) await takeover(id);
+      return { ok: true, takeover: !!s.takeover_on_open };
     });
 
     r.patch("/api/conversations/:id", async (req) => {
@@ -283,18 +287,15 @@ export async function adminRoutes(app: FastifyInstance) {
     // kirim pesan manual dari admin (chat bisnis manual)
     r.post("/api/conversations/:id/send", async (req, reply) => {
       const id = Number((req.params as any).id);
-      const { text, takeover = true } = (req.body ?? {}) as any;
+      const { text, takeover: doTakeover = true } = (req.body ?? {}) as any;
       if (!text || !String(text).trim()) return reply.code(400).send({ error: "Pesan kosong" });
       const [conv] = await sql`SELECT c.*, ct.wa_id FROM conversations c JOIN contacts ct ON ct.id = c.contact_id WHERE c.id = ${id}`;
       if (!conv) return reply.code(404).send({ error: "not found" });
       try {
+        if (doTakeover) await takeover(id);
         const row = await sendAndStore(id, conv.wa_id, conv.phone_number_id, String(text).trim(), "admin");
-        if (takeover) {
-          const s = await getSettings();
-          const minutes = Number(s.human_auto_resume_minutes) || 0;
-          const until = minutes > 0 ? new Date(Date.now() + minutes * 60_000) : null;
-          await sql`UPDATE conversations SET mode = 'human', human_until = ${until}, unread = 0, needs_attention = false WHERE id = ${id}`;
-        }
+        await sql`UPDATE messages SET source = 'panel' WHERE id = ${row.id}`;
+        await sql`UPDATE conversations SET unread = 0 WHERE id = ${id}`;
         return row;
       } catch (e: any) {
         return reply.code(502).send({ error: e.message, message: e.stored });

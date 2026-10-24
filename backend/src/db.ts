@@ -127,6 +127,15 @@ CREATE TABLE ai_logs (
 CREATE INDEX ai_logs_created ON ai_logs (created_at DESC);
 `,
   },
+  {
+    id: "002_kirim_agent_sync",
+    sql: `
+ALTER TABLE conversations ADD COLUMN kirim_conversation_id TEXT;
+CREATE INDEX conversations_kirim_id ON conversations (kirim_conversation_id);
+-- asal pesan admin: 'panel' (admin panel ini) | 'kirimdev' (inbox/app Kirimdev)
+ALTER TABLE messages ADD COLUMN source TEXT;
+`,
+  },
 ];
 
 export async function migrate() {

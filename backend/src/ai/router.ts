@@ -49,7 +49,12 @@ export async function getCandidates(opts: { includePaid: boolean; onlyModelPk?: 
 }
 
 function cleanOutput(text: string) {
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    // Markdown -> format WhatsApp: **tebal** -> *tebal*, heading "## x" -> *x*
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")
+    .replace(/^#{1,6}\s+(.+)$/gm, "*$1*")
+    .trim();
 }
 
 export async function callModel(c: Candidate, messages: ChatMessage[]) {
@@ -77,10 +82,18 @@ export async function callModel(c: Candidate, messages: ChatMessage[]) {
     throw Object.assign(new Error(`HTTP ${res.status}: ${raw.slice(0, 200)}`), { status: res.status });
   }
   if (!res.ok || json.error) {
-    const msg = json?.error?.message ?? json?.message ?? raw.slice(0, 200);
+    let msg = json?.error?.message ?? json?.message ?? raw.slice(0, 200);
+    // OpenRouter menaruh error asli provider upstream di error.metadata.raw
+    const meta = json?.error?.metadata;
+    if (meta?.raw) msg += ` (${meta.provider_name ?? "upstream"}: ${String(meta.raw).slice(0, 300)})`;
     throw Object.assign(new Error(`HTTP ${res.status}: ${msg}`), { status: res.status });
   }
-  const text = cleanOutput(json?.choices?.[0]?.message?.content ?? "");
+  const choice = json?.choices?.[0];
+  // jawaban terpotong (max_tokens habis, sering terjadi pada model "thinking") -> anggap gagal, coba model lain
+  if (choice?.finish_reason === "length") {
+    throw new Error(`Jawaban terpotong (max_tokens ${c.max_tokens} habis) — naikkan Max tokens model ini`);
+  }
+  const text = cleanOutput(choice?.message?.content ?? "");
   if (!text) throw new Error("Respons kosong dari model");
   return { text, usage: json.usage ?? {} };
 }

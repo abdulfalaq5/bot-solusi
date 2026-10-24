@@ -4,7 +4,7 @@ import { config } from "./config.js";
 import { migrate, sql } from "./db.js";
 import { seed } from "./seed.js";
 import { QUEUE_NAME, InboundJob, ReplyJob } from "./queue.js";
-import { handleInbound, processReply } from "./services/conversation.js";
+import { handleConversationEvent, handleInbound, handleMessageSent, processReply } from "./services/conversation.js";
 
 await migrate();
 await seed();
@@ -14,10 +14,14 @@ const worker = new Worker(
   async (job) => {
     if (job.name === "inbound") {
       const { event, payload } = job.data as InboundJob;
-      if (event === "message.received" || event === "message.status" || payload?.object === "whatsapp_business_account") {
-        await handleInbound(payload);
+      if (event === "message.received" || event === "message.status") {
+        await handleInbound(payload, event);
+        return { ok: true };
       }
-      return { ok: true };
+      // pesan keluar: jika dikirim agen dari inbox Kirimdev -> AI berhenti di chat itu
+      if (event === "message.sent") return handleMessageSent(payload);
+      if (event === "conversation.assigned" || event === "conversation.closed") return handleConversationEvent(event, payload);
+      return { ignored: event || "unknown" };
     }
     if (job.name === "reply") {
       const { conversationId, messageId } = job.data as ReplyJob;
