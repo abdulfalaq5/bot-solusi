@@ -68,6 +68,7 @@ export type Prompt = { id: number; name: string; kind: "assistant" | "cs" | "cus
 
 export type Conversation = {
   id: number;
+  phone_number_id: string;
   wa_id: string;
   contact_name: string | null;
   mode: "ai" | "human";

@@ -12,6 +12,8 @@ export const config = {
   adminEmail: process.env.ADMIN_EMAIL ?? "admin@example.com",
   adminPassword: process.env.ADMIN_PASSWORD ?? "admin123",
   kirim: {
+    // saklar kanal Kirimdev (WhatsApp Business API resmi)
+    enabled: process.env.KIRIM_ENABLED !== "false",
     baseUrl: process.env.KIRIM_BASE_URL ?? "https://api.kirimdev.com/v1",
     apiKey: process.env.KIRIM_API_KEY ?? "",
     phoneId: process.env.KIRIM_PHONE_ID ?? "",
@@ -21,6 +23,12 @@ export const config = {
       .map((s) => s.trim())
       .filter(Boolean),
     webhookTolerance: Number(process.env.KIRIM_WEBHOOK_TOLERANCE ?? 300),
+  },
+  // kanal WhatsApp tidak resmi (nomor pribadi via WhatsApp Web) — service wa-baileys
+  baileys: {
+    enabled: process.env.BAILEYS_ENABLED === "true",
+    url: process.env.BAILEYS_URL ?? "http://wa-baileys:3100",
+    secret: process.env.BAILEYS_INTERNAL_SECRET ?? "",
   },
   publicUrl: process.env.PUBLIC_URL ?? "",
   workerConcurrency: Number(process.env.WORKER_CONCURRENCY ?? 5),

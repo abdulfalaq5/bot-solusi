@@ -374,3 +374,37 @@ docker compose down -v                # ⚠️ HAPUS SEMUA DATA (chat, setting, 
 ```
 
 > Perubahan di admin panel (model, provider, prompt, setting) **tidak perlu** build ulang atau restart. Restart hanya diperlukan setelah mengubah `.env`.
+
+---
+
+## 13. Kanal WhatsApp: Kirimdev atau nomor pribadi (Baileys)
+
+Sistem ini mendukung dua kanal. Saklarnya ada di `.env`:
+
+```env
+KIRIM_ENABLED=false     # Kirimdev (WhatsApp Business API resmi)
+BAILEYS_ENABLED=true    # nomor pribadi via WhatsApp Web (TIDAK resmi)
+BAILEYS_INTERNAL_SECRET=string-acak   # openssl rand -hex 32
+```
+
+Setelah mengubahnya, jalankan `docker compose up -d`. Tidak perlu build ulang.
+
+| | Kirimdev | Baileys (nomor pribadi) |
+|---|---|---|
+| Status | Resmi dari Meta | Tidak resmi (WhatsApp Web) |
+| Risiko blokir | Rendah | **Ada.** Meta bisa memblokir nomor yang memakai bot |
+| Webhook / domain publik | Wajib | Tidak perlu |
+| Admin membalas manual | Dari Inbox panel atau inbox Kirimdev | Dari Inbox panel **atau langsung dari HP** |
+
+### Menghubungkan nomor pribadi
+1. Buka menu **WhatsApp** di admin panel. QR akan muncul.
+2. Di HP, buka WhatsApp → **⋮ / Setelan → Perangkat tertaut → Tautkan perangkat**, lalu scan QR-nya.
+3. Status berubah menjadi **Terhubung**. Sesi disimpan di volume Docker `baileys_auth`, jadi restart container tidak perlu scan ulang.
+
+**Perilaku kanal Baileys:**
+- Pesan grup, status, dan channel diabaikan. Bot hanya membalas chat pribadi.
+- Jika Anda membalas langsung dari HP, chat itu otomatis pindah ke mode **Manual**, dan di Inbox tercatat sebagai "Admin (dari HP)".
+- Sebelum mengirim, bot menampilkan "sedang mengetik..." dan memberi jeda singkat supaya terlihat wajar.
+- Tombol **Logout** di halaman WhatsApp memutus nomor dari bot. Setelah itu QR baru akan muncul.
+
+**Tips mengurangi risiko blokir:** pakai nomor yang sudah lama aktif, jangan kirim broadcast atau pesan massal, jangan memulai chat ke orang yang belum pernah menghubungi Anda, dan biarkan jeda balasan tetap aktif.

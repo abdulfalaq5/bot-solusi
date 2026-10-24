@@ -28,7 +28,9 @@ export default function Dashboard() {
   return (
     <>
       <h1>Dashboard</h1>
-      {!s.kirim_configured && <div className="alert error">KIRIM_API_KEY / KIRIM_PHONE_ID belum diisi di file .env.</div>}
+      {!s.kirim_enabled && !s.baileys_enabled && <div className="alert error">Tidak ada kanal WhatsApp yang aktif. Atur KIRIM_ENABLED / BAILEYS_ENABLED di .env.</div>}
+      {s.kirim_enabled && !s.kirim_configured && <div className="alert error">KIRIM_API_KEY / KIRIM_PHONE_ID belum diisi di file .env.</div>}
+      {s.baileys_enabled && <div className="alert">Kanal nomor pribadi (Baileys) aktif — cek status koneksi & scan QR di menu <Link to="/whatsapp">WhatsApp</Link>.</div>}
       {!s.webhook_secret_configured && (
         <div className="alert">Webhook secret belum diset — signature webhook tidak diverifikasi. Daftarkan webhook di <Link to="/settings">Pengaturan</Link>.</div>
       )}

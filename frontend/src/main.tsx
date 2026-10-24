@@ -12,10 +12,12 @@ import Prompts from "./pages/Prompts";
 import Settings from "./pages/Settings";
 import Playground from "./pages/Playground";
 import Logs from "./pages/Logs";
+import WhatsApp from "./pages/WhatsApp";
 
 const NAV = [
   ["/", "Dashboard"],
   ["/inbox", "Inbox Chat"],
+  ["/whatsapp", "WhatsApp"],
   ["/models", "Model AI"],
   ["/providers", "Provider AI"],
   ["/prompts", "Prompt"],
@@ -70,6 +72,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/playground" element={<Playground />} />
           <Route path="/logs" element={<Logs />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/whatsapp" element={<WhatsApp />} />
         </Route>
       </Routes>
     </BrowserRouter>

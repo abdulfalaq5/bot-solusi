@@ -86,6 +86,8 @@ export default function Settings() {
           </label>
           <label className="field"><span>Jumlah riwayat chat dikirim ke AI</span><input type="number" value={s.history_limit} onChange={(e) => set("history_limit", Number(e.target.value))} /></label>
           <label className="field"><span>Jeda tunggu sebelum membalas (ms)</span><input type="number" value={s.reply_debounce_ms} onChange={(e) => set("reply_debounce_ms", Number(e.target.value))} /></label>
+          <label className="field"><span>Jeda "mengetik" minimal (ms, nomor pribadi)</span><input type="number" value={s.human_delay_min_ms} onChange={(e) => set("human_delay_min_ms", Number(e.target.value))} /></label>
+          <label className="field"><span>Jeda "mengetik" maksimal (ms, nomor pribadi)</span><input type="number" value={s.human_delay_max_ms} onChange={(e) => set("human_delay_max_ms", Number(e.target.value))} /></label>
           <label className="field"><span>Maks. model dicoba per pesan</span><input type="number" value={s.max_attempts} onChange={(e) => set("max_attempts", Number(e.target.value))} /></label>
           <label className="field"><span>AI aktif lagi setelah admin membalas (menit, 0 = tidak)</span><input type="number" value={s.human_auto_resume_minutes} onChange={(e) => set("human_auto_resume_minutes", Number(e.target.value))} /></label>
           <label className="field"><span>Keyword minta admin (pisahkan koma)</span>
@@ -105,7 +107,9 @@ export default function Settings() {
 
       <div className="card">
         <h2>WhatsApp (Kirimdev)</h2>
-        {!kirim ? <p className="muted">Memuat...</p> : (
+        {kirim && kirim.enabled === false ? (
+          <p className="muted">Kanal Kirimdev <b>dinonaktifkan</b> (KIRIM_ENABLED=false). Status nomor pribadi ada di menu WhatsApp.</p>
+        ) : !kirim ? <p className="muted">Memuat...</p> : (
           <>
             <p>
               Status: {kirim.configured ? <span className="badge ok">API key & Phone ID terisi</span> : <span className="badge err">KIRIM_API_KEY / KIRIM_PHONE_ID belum di .env</span>}

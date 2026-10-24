@@ -4,7 +4,7 @@ import { config } from "./config.js";
 import { migrate, sql } from "./db.js";
 import { seed } from "./seed.js";
 import { QUEUE_NAME, InboundJob, ReplyJob } from "./queue.js";
-import { handleConversationEvent, handleInbound, handleMessageSent, processReply } from "./services/conversation.js";
+import { handleBaileysEvent, handleConversationEvent, handleInbound, handleMessageSent, processReply } from "./services/conversation.js";
 
 await migrate();
 await seed();
@@ -23,6 +23,7 @@ const worker = new Worker(
       if (event === "conversation.assigned" || event === "conversation.closed") return handleConversationEvent(event, payload);
       return { ignored: event || "unknown" };
     }
+    if (job.name === "baileys") return handleBaileysEvent(job.data);
     if (job.name === "reply") {
       const { conversationId, messageId } = job.data as ReplyJob;
       return processReply(conversationId, messageId);

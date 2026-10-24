@@ -6,6 +6,7 @@ import { callModel, generateReply, getCandidates, resolveKey } from "../ai/route
 import { getSettings, updateSettings } from "../services/settings.js";
 import { buildSystemPrompt, sendAndStore, takeover } from "../services/conversation.js";
 import { kirimApi } from "../services/kirim.js";
+import { baileysRequest, defaultPhoneId } from "../services/channel.js";
 
 const PROVIDER_FIELDS = ["code", "name", "base_url", "api_key", "api_key_env", "requires_key", "tier", "enabled", "extra_headers", "website", "notes"] as const;
 const MODEL_FIELDS = ["provider_id", "model_id", "label", "tier", "enabled", "priority", "temperature", "max_tokens", "timeout_ms"] as const;
@@ -88,8 +89,10 @@ export async function adminRoutes(app: FastifyInstance) {
         usage,
         bot_enabled: s.bot_enabled,
         active_chain: candidates.map((x) => ({ provider: x.provider_code, model: x.model_id, tier: x.tier })),
-        kirim_configured: !!(config.kirim.apiKey && config.kirim.phoneId),
-        webhook_secret_configured: !!(config.kirim.webhookSecrets.length || s.webhook_secrets?.length),
+        kirim_enabled: config.kirim.enabled,
+        baileys_enabled: config.baileys.enabled,
+        kirim_configured: !config.kirim.enabled || !!(config.kirim.apiKey && config.kirim.phoneId),
+        webhook_secret_configured: !config.kirim.enabled || !!(config.kirim.webhookSecrets.length || s.webhook_secrets?.length),
       };
     });
 
@@ -309,7 +312,7 @@ export async function adminRoutes(app: FastifyInstance) {
       if (!waId || !text) return reply.code(400).send({ error: "wa_id dan text wajib" });
       const [ct] = await sql`INSERT INTO contacts (wa_id, name) VALUES (${waId}, ${name ?? null})
                              ON CONFLICT (wa_id) DO UPDATE SET name = COALESCE(EXCLUDED.name, contacts.name) RETURNING *`;
-      const [conv] = await sql`INSERT INTO conversations (contact_id, phone_number_id, mode) VALUES (${ct.id}, ${config.kirim.phoneId}, 'human')
+      const [conv] = await sql`INSERT INTO conversations (contact_id, phone_number_id, mode) VALUES (${ct.id}, ${defaultPhoneId()}, 'human')
                                ON CONFLICT (contact_id, phone_number_id) DO UPDATE SET mode = 'human' RETURNING *`;
       try {
         await sendAndStore(conv.id, waId, conv.phone_number_id, String(text), "admin");
@@ -339,8 +342,32 @@ export async function adminRoutes(app: FastifyInstance) {
     });
 
     // ---------- kirimdev ----------
-    r.get("/api/kirim/status", async () => {
+    // ---------- kanal WhatsApp ----------
+    r.get("/api/whatsapp/status", async () => {
       const out: any = {
+        kirimdev: { enabled: config.kirim.enabled, configured: !!(config.kirim.apiKey && config.kirim.phoneId) },
+        baileys: { enabled: config.baileys.enabled },
+      };
+      if (config.baileys.enabled) {
+        try {
+          out.baileys = await baileysRequest("GET", "/status");
+        } catch (e: any) {
+          out.baileys = { enabled: true, status: "unreachable", lastError: e.message };
+        }
+      }
+      return out;
+    });
+    r.post("/api/whatsapp/baileys/:action", async (req, reply) => {
+      const action = (req.params as any).action;
+      if (!["logout", "restart"].includes(action)) return reply.code(404).send({ error: "not found" });
+      if (!config.baileys.enabled) return reply.code(400).send({ error: "BAILEYS_ENABLED=false" });
+      return baileysRequest("POST", `/${action}`, {});
+    });
+
+    r.get("/api/kirim/status", async () => {
+      if (!config.kirim.enabled) return { enabled: false, configured: false, phone_id: config.kirim.phoneId };
+      const out: any = {
+        enabled: true,
         configured: !!(config.kirim.apiKey && config.kirim.phoneId),
         phone_id: config.kirim.phoneId,
         public_url: config.publicUrl,

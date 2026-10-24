@@ -102,6 +102,7 @@ export default function Inbox() {
                 <div className="name">
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{c.contact_name || `+${c.wa_id}`}</span>
                   {c.needs_attention && <span title="Perlu perhatian">⚠️</span>}
+                  <span className="badge" title="Kanal">{c.phone_number_id === "baileys" ? "WA pribadi" : "Kirimdev"}</span>
                   <span className={`badge ${c.mode}`}>{c.mode === "ai" ? "AI" : "Manual"}</span>
                   {c.unread > 0 && <span className="unread">{c.unread}</span>}
                 </div>
@@ -121,7 +122,7 @@ export default function Inbox() {
               <div className="chat-head">
                 <div>
                   <b>{active.contact_name || `+${active.wa_id}`}</b>
-                  <div className="muted small">+{active.wa_id}</div>
+                  <div className="muted small">+{active.wa_id} · {active.phone_number_id === "baileys" ? "WA pribadi (Baileys)" : "Kirimdev"}</div>
                 </div>
                 <div className="spacer" />
                 <span className={`badge ${active.mode}`}>
@@ -152,7 +153,7 @@ export default function Inbox() {
                       <div><a href={m.media_url} target="_blank" rel="noreferrer">lihat media</a></div>
                     )}
                     <div className="meta">
-                      {SENDER_LABEL[m.sender] && <b>{SENDER_LABEL[m.sender]}{m.source === "kirimdev" ? " (Kirimdev)" : ""} · </b>}
+                      {SENDER_LABEL[m.sender] && <b>{SENDER_LABEL[m.sender]}{m.source === "kirimdev" ? " (Kirimdev)" : m.source === "phone" ? " (dari HP)" : ""} · </b>}
                       {m.model_used && <span title="model">{m.model_used} · </span>}
                       {fmtTime(m.created_at)}
                       {m.direction === "out" && m.status && ` · ${m.status}`}

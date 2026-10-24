@@ -229,6 +229,10 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   takeover_on_open: false,
   // admin membalas / di-assign dari inbox Kirimdev -> AI berhenti; conversation ditutup -> AI aktif lagi
   sync_kirim_agent: true,
+  // jeda "sedang mengetik..." sebelum balasan AI dikirim (kanal nomor pribadi), acak di antara min-max
+  // dan makin lama untuk pesan yang lebih panjang, supaya tidak terlihat seperti bot
+  human_delay_min_ms: 3000,
+  human_delay_max_ms: 9000,
 };
 
 export async function seed() {

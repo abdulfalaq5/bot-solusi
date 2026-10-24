@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { timingSafeEqual } from "node:crypto";
 import { config } from "../config.js";
 import { queue } from "../queue.js";
 import { verifySignature } from "../services/kirim.js";
@@ -8,6 +9,8 @@ export async function webhookRoutes(app: FastifyInstance) {
   app.get("/webhook/kirim", async () => ({ ok: true, hint: "Kirimdev webhook endpoint, gunakan POST" }));
 
   app.post("/webhook/kirim", async (req, reply) => {
+    // kanal Kirimdev dimatikan: balas 200 agar Kirimdev tidak terus retry, tapi abaikan isinya
+    if (!config.kirim.enabled) return { received: true, ignored: "KIRIM_ENABLED=false" };
     const raw: Buffer = (req as any).rawBody ?? Buffer.from("");
     const s = await getSettings();
     const secrets = [...config.kirim.webhookSecrets, ...(s.webhook_secrets ?? [])].filter(Boolean);
@@ -35,6 +38,21 @@ export async function webhookRoutes(app: FastifyInstance) {
         ...(event === "message.sent" ? { delay: 5000 } : {}),
       },
     );
+    return { received: true };
+  });
+
+  // event dari service wa-baileys (jaringan internal docker, tidak di-proxy nginx ke publik)
+  app.post("/internal/baileys/event", async (req, reply) => {
+    const got = Buffer.from(String(req.headers["x-internal-secret"] ?? ""));
+    const exp = Buffer.from(config.baileys.secret);
+    if (!exp.length || got.length !== exp.length || !timingSafeEqual(got, exp)) return reply.code(401).send({ error: "unauthorized" });
+    if (!config.baileys.enabled) return { received: true, ignored: "BAILEYS_ENABLED=false" };
+    const body = req.body as any;
+    await queue.add("baileys", body, {
+      // balasan manual dari HP: beri waktu kiriman bot tersimpan dulu agar tidak dikira balasan admin
+      ...(body?.type === "agent_message" ? { delay: 5000 } : {}),
+      ...(body?.message?.id && body?.type === "message" ? { jobId: `bl-${String(body.message.id).replace(/[^a-zA-Z0-9._-]/g, "_")}` } : {}),
+    });
     return { received: true };
   });
 }

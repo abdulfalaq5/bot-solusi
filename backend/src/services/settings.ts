@@ -21,6 +21,8 @@ export type Settings = typeof DEFAULT_SETTINGS & {
   webhook_secrets: string[];
   takeover_on_open: boolean;
   sync_kirim_agent: boolean;
+  human_delay_min_ms: number;
+  human_delay_max_ms: number;
 };
 
 // Selalu dibaca dari DB (tanpa cache panjang) supaya perubahan di admin langsung berlaku.

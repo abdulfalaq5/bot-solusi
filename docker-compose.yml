@@ -58,6 +58,17 @@ services:
     <<: *backend
     command: ["node", "dist/worker.js"]
 
+  # kanal WhatsApp nomor pribadi (tidak resmi, via WhatsApp Web) — aktif jika BAILEYS_ENABLED=true
+  wa-baileys:
+    build: ./wa-baileys
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      API_URL: http://api:3000
+      AUTH_DIR: /app/auth
+    volumes:
+      - baileys_auth:/app/auth
+
   # admin panel (React) + reverse proxy /api & /webhook ke service api
   web:
     build: ./frontend
@@ -72,3 +83,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  baileys_auth:
